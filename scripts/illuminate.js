@@ -90,8 +90,8 @@ class GlApp {
         // create a texture, and upload a temporary 1px white RGBA array [255,255,255,255]
         let texture = this.gl.createTexture();
 
-        // TODO: set texture parameters and upload a temporary 1px white RGBA array [255,255,255,255]
-        // ...
+        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 1, 1, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, new Uint8Array([255,255,255,255]));
 
         // download the actual image
         let image = new Image();
@@ -99,6 +99,7 @@ class GlApp {
         image.addEventListener('load', (event) => {
             // once image is downloaded, update the texture image
             this.UpdateTexture(texture, image);
+            
         }, false);
         image.src = image_url;
 
@@ -106,7 +107,8 @@ class GlApp {
     }
 
     UpdateTexture(texture, image_element) {
-        // TODO: update image for specified texture
+        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image_element);
     }
 
     Render() {
@@ -115,8 +117,13 @@ class GlApp {
         
         // draw all models
         for (let i = 0; i < this.scene.models.length; i ++) {
-            // NOTE: you need to properly select shader here
-            let selected_shader = 'emissive';
+            let selected_shader = this.algorithm;
+
+            //Selects the shader
+            if(selected_shader != 'emissive') {
+                selected_shader = selected_shader + '_' + this.scene.models[i].shader;
+            }
+            
             this.gl.useProgram(this.shader[selected_shader].program);
 
             // transform model to proper position, size, and orientation
@@ -131,6 +138,29 @@ class GlApp {
             this.gl.uniformMatrix4fv(this.shader[selected_shader].uniform.projection_matrix, false, this.projection_matrix);
             this.gl.uniformMatrix4fv(this.shader[selected_shader].uniform.view_matrix, false, this.view_matrix);
             this.gl.uniformMatrix4fv(this.shader[selected_shader].uniform.model_matrix, false, this.model_matrix);
+
+            this.gl.uniform3fv(this.shader[selected_shader].uniform.light_ambient, this.scene.light.ambient);
+            this.gl.uniform3fv(this.shader[selected_shader].uniform.camera_position, this.scene.camera.position);
+            this.gl.uniform1f(this.shader[selected_shader].uniform.material_shininess, this.scene.models[i].material.shininess);
+            this.gl.uniform3fv(this.shader[selected_shader].uniform.material_specular, this.scene.models[i].material.specular);
+
+            // Store the light positions in an array
+            let light_colors = [];
+            let light_positions = [];
+            for(let index = 0; index < this.scene.light.point_lights.length && index < 10; index++) {
+                let light = this.scene.light.point_lights[index];
+                light_colors = light_colors.concat([light.color[0], light.color[1], light.color[2]]);
+                light_positions = light_positions.concat([light.position[0], light.position[1], light.position[2]]);
+            }
+            this.gl.uniform3fv(this.shader[selected_shader].uniform['light_color[0]'], Float32Array.from(light_colors));
+            this.gl.uniform3fv(this.shader[selected_shader].uniform['light_position[0]'], Float32Array.from(light_positions));
+
+            // Stores the texture information
+            if(this.scene.models[i].shader === 'texture') {
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.scene.models[i].texture.id);
+                this.gl.uniform2fv(this.shader[selected_shader].uniform.texture_scale, this.scene.models[i].texture.scale);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+            }
 
             this.gl.bindVertexArray(this.vertex_array[this.scene.models[i].type]);
             this.gl.drawElements(this.gl.TRIANGLES, this.vertex_array[this.scene.models[i].type].face_index_count, this.gl.UNSIGNED_SHORT, 0);
@@ -283,158 +313,4 @@ class GlApp {
         }
     }
 
-
-
-
-
-
-
-    /*
-    LoadColorShader(vs_source, fs_source, program_name) {
-        let vertex_shader = this.CompileShader(vs_source, this.gl.VERTEX_SHADER);
-        let fragment_shader = this.CompileShader(fs_source, this.gl.FRAGMENT_SHADER);
-
-        let program = this.CreateShaderProgram(vertex_shader, fragment_shader);
-
-        this.gl.bindAttribLocation(program, this.vertex_position_attrib, 'vertex_position');
-        this.gl.bindAttribLocation(program, this.vertex_normal_attrib, 'vertex_normal');
-        this.gl.bindAttribLocation(program, 0, 'FragColor');
-
-        this.LinkShaderProgram(program);
-
-        let light_ambient_uniform = this.gl.getUniformLocation(program, 'light_ambient');
-		let light_pos_uniform = this.gl.getUniformLocation(program, 'light_position');
-        let light_col_uniform = this.gl.getUniformLocation(program, 'light_color');
-        let camera_pos_uniform = this.gl.getUniformLocation(program, 'camera_position');
-        let material_col_uniform = this.gl.getUniformLocation(program, 'material_color');
-        let material_spec_uniform = this.gl.getUniformLocation(program, 'material_specular');
-        let shininess_uniform = this.gl.getUniformLocation(program, 'material_shininess');
-        let projection_uniform = this.gl.getUniformLocation(program, 'projection_matrix');
-        let view_uniform = this.gl.getUniformLocation(program, 'view_matrix');
-        let model_uniform = this.gl.getUniformLocation(program, 'model_matrix');
-
-        this.shader[program_name] = {
-            program: program,
-            uniform: {
-                light_ambient: light_ambient_uniform,
-                light_pos: light_pos_uniform,
-                light_col: light_col_uniform,
-                camera_pos: camera_pos_uniform,
-                material_col: material_col_uniform,
-                material_spec: material_spec_uniform,
-                shininess: shininess_uniform,
-                projection: projection_uniform,
-                view: view_uniform,
-                model: model_uniform
-            }
-        };
-    }
-
-    LoadTextureShader(vs_source, fs_source, program_name) {
-        let vertex_shader = this.CompileShader(vs_source, this.gl.VERTEX_SHADER);
-        let fragment_shader = this.CompileShader(fs_source, this.gl.FRAGMENT_SHADER);
-
-        let program = this.CreateShaderProgram(vertex_shader, fragment_shader);
-
-        this.gl.bindAttribLocation(program, this.vertex_position_attrib, 'vertex_position');
-        this.gl.bindAttribLocation(program, this.vertex_normal_attrib, 'vertex_normal');
-        this.gl.bindAttribLocation(program, this.vertex_texcoord_attrib, 'vertex_texcoord');
-        this.gl.bindAttribLocation(program, 0, 'FragColor');
-
-        this.LinkShaderProgram(program);
-
-        let light_ambient_uniform = this.gl.getUniformLocation(program, 'light_ambient');
-        let light_pos_uniform = this.gl.getUniformLocation(program, 'light_position');
-        let light_col_uniform = this.gl.getUniformLocation(program, 'light_color');
-        let camera_pos_uniform = this.gl.getUniformLocation(program, 'camera_position');
-        let material_col_uniform = this.gl.getUniformLocation(program, 'material_color');
-        let material_spec_uniform = this.gl.getUniformLocation(program, 'material_specular');
-        let tex_scale_uniform = this.gl.getUniformLocation(program, 'texture_scale');
-        let image_uniform = this.gl.getUniformLocation(program, 'image');
-        let shininess_uniform = this.gl.getUniformLocation(program, 'material_shininess');
-        let projection_uniform = this.gl.getUniformLocation(program, 'projection_matrix');
-        let view_uniform = this.gl.getUniformLocation(program, 'view_matrix');
-        let model_uniform = this.gl.getUniformLocation(program, 'model_matrix');
-
-        this.shader[program_name] = {
-            program: program,
-            uniform: {
-                light_ambient: light_ambient_uniform,
-                light_pos: light_pos_uniform,
-                light_col: light_col_uniform,
-                camera_pos: camera_pos_uniform,
-                material_col: material_col_uniform,
-                material_spec: material_spec_uniform,
-                tex_scale: tex_scale_uniform,
-                image: image_uniform,
-                shininess: shininess_uniform,
-                projection: projection_uniform,
-                view: view_uniform,
-                model: model_uniform
-            }
-        };
-    }
-
-    LoadEmissiveShader(vs_source, fs_source, program_name) {
-        let vertex_shader = this.CompileShader(vs_source, this.gl.VERTEX_SHADER);
-        let fragment_shader = this.CompileShader(fs_source, this.gl.FRAGMENT_SHADER);
-
-        let program = this.CreateShaderProgram(vertex_shader, fragment_shader);
-
-        this.gl.bindAttribLocation(program, this.vertex_position_attrib, 'vertex_position');
-        this.gl.bindAttribLocation(program, 0, 'FragColor');
-
-        this.LinkShaderProgram(program);
-
-        let material_col_uniform = this.gl.getUniformLocation(program, 'material_color');
-        let projection_uniform = this.gl.getUniformLocation(program, 'projection_matrix');
-        let view_uniform = this.gl.getUniformLocation(program, 'view_matrix');
-        let model_uniform = this.gl.getUniformLocation(program, 'model_matrix');
-
-        this.shader[program_name] = {
-            program: program,
-            uniform: {
-                material_col: material_col_uniform,
-                projection: projection_uniform,
-                view: view_uniform,
-                model: model_uniform
-            }
-        };
-    }
-
-    CompileShader(source, type) {
-        // Create a shader object
-        let shader = this.gl.createShader(type);
-
-        // Send the source to the shader object
-        this.gl.shaderSource(shader, source);
-
-        // Compile the shader program
-        this.gl.compileShader(shader);
-
-        // Check to see if it compiled successfully
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            alert('An error occurred compiling the shader: ' + this.gl.getShaderInfoLog(shader));
-        }
-
-        return shader;
-    }
-
-    CreateShaderProgram(vertex_shader, fragment_shader) {
-        let program = this.gl.createProgram();
-        this.gl.attachShader(program, vertex_shader);
-        this.gl.attachShader(program, fragment_shader);
-
-        return program;
-    }
-
-    LinkShaderProgram(program) {
-        this.gl.linkProgram(program);
-
-        // Check to see if it linked successfully
-        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-            alert('An error occurred linking the shader program.');
-        }
-    }
-    */
 }

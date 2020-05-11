@@ -220,6 +220,23 @@
             if (b.length < 2) b = '0' + b;
             return '#' + r + g + b; 
         }
+
+        function AddLight() {
+            if(scene.light.point_lights.length < 10) {
+                let l = {}
+
+                l.position = glMatrix.vec3.fromValues(0,0,0);
+                l.color = glMatrix.vec3.fromValues(0,0,0);
+                scene.light.point_lights.push(l);
+            }
+        }
+
+        function RemoveLight(index) {
+            if(index < scene.light.point_lights.length && index > 0) {
+                scene.light.point_lights.splice(index);
+            }
+        }
+        
     </script>
 </head>
 <body onload="Init()">
@@ -236,6 +253,7 @@
                 <select id="shading_alg" onchange="SelectShadingAlgorithm()">
                     <option value="gouraud">Gouraud</option>
                     <option value="phong">Phong</option>
+                    <option value="emissive">Emissive</option>
                 </select>
                 <br/>
                 <div class="spacer2"></div>
@@ -251,8 +269,11 @@
                         <input :id="'light' + index + '_posy'" class="input_num" type="number" step="0.1" :value="light.position[1]" @change="UpdateLightPosition(index)" />
                         <input :id="'light' + index + '_posz'" class="input_num" type="number" step="0.1" :value="light.position[2]" @change="UpdateLightPosition(index)" />
                         <br/>
+                        <button @click="RemoveLight(index)">Remove</button>
+                        <br/>
                         <hr/>
                     </div>
+                    <button v-if="light.point_lights.length<10" @click="AddLight">Add Light</button>
                 </div>
             </div>
         </div>
