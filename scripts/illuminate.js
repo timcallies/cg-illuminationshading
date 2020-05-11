@@ -99,7 +99,7 @@ class GlApp {
         image.addEventListener('load', (event) => {
             // once image is downloaded, update the texture image
             this.UpdateTexture(texture, image);
-            
+            this.Render()
         }, false);
         image.src = image_url;
 

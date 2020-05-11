@@ -26,7 +26,7 @@ void main() {
         vec3 r = vec3(2.0, 2.0, 2.0)*dot(n,l)*n - l;
         vec3 v = normalize(camera_position - frag_pos);
         diffuse = diffuse + max(light_color[i] * dot(n, l), vec3(0.0, 0.0, 0.0));
-        specular = specular + clamp(light_color[i] * pow(dot(r, v), material_shininess), vec3(0.0, 0.0, 0.0));
+        specular = specular + max(light_color[i] * pow(dot(r, v), material_shininess), vec3(0.0, 0.0, 0.0));
     }
 
     FragColor = vec4(min(
